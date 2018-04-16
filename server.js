@@ -45,8 +45,43 @@ const routes = {
 };
 
 
-function updateComment(url, request) {};
-function deleteComment(url, request) {};
+
+function deleteComment(url, request) {
+  // create response object
+     const res = { status: null, body: {} };
+
+     //get id
+     const id = url.split('/')[2];
+
+     // handle for when id trying to be deleted doesn't exist
+     if (!database.comments[id]) {
+       res.status = 404;
+       return res;
+     }
+
+     // save comment before deleted
+     const deletedComment = database.comments[id];
+
+     // instead of deleting, test want comment set to null
+     database.comments[id] = null;
+
+     // find index and remove from authors comment array
+     const commentIndex = database.users[deletedComment.username].commentIds.findIndex(commentId => {
+       return commentId === deletedComment.id;
+     });
+     database.users[deletedComment.username].commentIds.splice(commentIndex, 1);
+
+     // find index and remove from articles array
+     const articleIndex = database.articles[deletedComment.id].commentIds.findIndex(articleId => {
+       return articleId === deletedComment.id;
+     });
+     database.articles[deletedComment.id].commentIds.splice(articleIndex, 1);
+
+     res.status = 204;
+     res.body.comment = deletedComment;
+     return res;
+};
+
 function upVoteComment(url, request) {};
 function downVoteComment(url, request) {};
 
@@ -294,8 +329,25 @@ return response; // return response
 
 
 } // end create comment function
+function updateComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const savedComment = database.comments[id];
+  const requestComment = request.body && request.body.comment;
+  const response = {};
 
+  if (!id || !requestComment) {
+    response.status = 400;
+  } else if (!savedComment) {
+    response.status = 404;
+  } else {
+    savedComment.body = requestComment.body || savedComment.body;
 
+    response.body = {comment: savedComment};
+    response.status = 200;
+  }
+
+  return response;
+};
 
 // Write all code above this line.
 
