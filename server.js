@@ -1,4 +1,5 @@
 // database is let instead of const to allow us to modify it in test.js
+// changed from empty object for YAML functionality
 let database = {
   users: {},
   articles: {},
@@ -45,46 +46,166 @@ const routes = {
 };
 
 
+function createComment(url, request) {
+
+    const requestComment = request.body && request.body.comment; // set variable with body of request properties
+    const response = {}; // create empty object comment
+// validation check if paramaters are truthy
+    if (requestComment && requestComment.body && requestComment.username && requestComment.articleId && database.users[requestComment.username] && database.articles[requestComment.articleId]) {
+// create new comment object dynamically with validated from request
+   const comment = {
+        id: database.nextCommentId++, //increment comment ID when creating new comments
+        body: requestComment.body, // set body property as value from comment object key body
+        username: requestComment.username,  //set username with propeties of comment object with key username
+        articleId: requestComment.articleId, //set articleproperty with value of article Id from comment request
+        upvotedBy: [],
+        downvotedBy: []
+      };
+
+      database.comments[comment.id] = comment; //update database aray with the new comments object using comment.id index value
+      //database.articles[requestComment.comment.articleId].commentIds.push(comment.id); //push data into the article array using articleID as index
+      database.articles[comment.articleId].commentIds.push(comment.id); // push id into comment object as property
+      database.users[comment.username].commentIds.push(comment.id); // push data into
+
+      response.body = {comment: comment};
+      response.status = 201; //respond with 201 with new comment
+    } else {
+      response.status = 400; // if data is invalid return 400
+    }
+return response; // return response
+
+
+} // end create comment function
+function updateComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const savedComment = database.comments[id];
+  const requestComment = request.body && request.body.comment;
+  const response = {};
+
+  if (!id || !requestComment) {
+    response.status = 400;
+  } else if (!savedComment) {
+    response.status = 404;
+  } else {
+    savedComment.body = requestComment.body || savedComment.body;
+
+    response.body = {comment: savedComment};
+    response.status = 200;
+  }
+
+  return response;
+};
+
+
+//
 
 function deleteComment(url, request) {
-  // create response object
-     const res = { status: null, body: {} };
 
-     //get id
-     const id = url.split('/')[2];
+     const res = { status: null, body: {} }; // create response object
+     const id = url.split('/')[2]; // parse path at '/' and set id to comment id at index[2]
 
-     // handle for when id trying to be deleted doesn't exist
+     console.log(`the value of id is: ${id}`);
+
+
+
+     // check if comment id exists
      if (!database.comments[id]) {
-       res.status = 404;
-       return res;
+       res.status = 404; // respond object value 404
+       return res; // return response to client
      }
+     const deletedComment = database.comments[id];    // store comment id in deletedComment object
+     database.comments[id] = null;  //  set comment id to null
 
-     // save comment before deleted
-     const deletedComment = database.comments[id];
-
-     // instead of deleting, test want comment set to null
-     database.comments[id] = null;
-
-     // find index and remove from authors comment array
+     // set commentIndex with value of commentID method within in the comment id object
      const commentIndex = database.users[deletedComment.username].commentIds.findIndex(commentId => {
-       return commentId === deletedComment.id;
+       return commentId === deletedComment.id; // return the comment id to user of deleted comment object
      });
+
+     //delete comment from user object with property comment Id
      database.users[deletedComment.username].commentIds.splice(commentIndex, 1);
 
      // find index and remove from articles array
      const articleIndex = database.articles[deletedComment.id].commentIds.findIndex(articleId => {
        return articleId === deletedComment.id;
      });
+
+     //delete comment from article
      database.articles[deletedComment.id].commentIds.splice(articleIndex, 1);
 
-     res.status = 204;
-     res.body.comment = deletedComment;
-     return res;
+     res.status = 204; // set response status 204
+     res.body.comment = deletedComment; // set comment propert of response body to deleted comment
+     return res; // return to client
 };
 
-function upVoteComment(url, request) {};
-function downVoteComment(url, request) {};
+// create response object
+function upVoteComment(url, request) {
 
+//get comment id and user name
+  const id = Number(url.split('/').filter(segment => segment)[1]); // parse url for commend id
+    const username = request.body && request.body.username;
+    //console.log(username);
+    // set saved comment with value id from comments array in database object
+    let savedComment = database.comments[id];
+    const response = {}; // create response object
+
+//check if saved comment has not been upvoted
+    if (savedComment && database.users[username]) {
+
+      // pass function upvote savedcomment id and user name
+      //upvote will return upvoted item if downvoted and underfined if alreadu upvoted
+      savedComment = upvote(savedComment, username);
+
+    //console log to examine item from upvote
+    console.log(savedComment);
+
+      response.body = {comment: savedComment}; // update response object body with comment
+      response.status = 200; // set response status to 200 if successful
+        console.log(response.body);
+
+    } else {
+      // set respoonse to 400 if not a vaild user name or has already upvoted
+      response.status = 400;
+        //console.log(response.body);
+    }
+
+    return response; // return response object to client
+
+
+
+};
+
+function downVoteComment(url, request) {
+  //get comment id and user name
+    const id = Number(url.split('/').filter(segment => segment)[1]); // parse url for commend id
+      const username = request.body && request.body.username;
+      //console.log(username);
+      // set saved comment with value id from comments array in database object
+      let savedComment = database.comments[id];
+      const response = {}; // create response object
+
+  //check if saved comment has not been upvoted
+      if (savedComment && database.users[username]) {
+
+        // pass function upvote savedcomment id and user name
+        //downVoteComment will return  item if up and underfined if alreadu downvoted
+        savedComment = downvote(savedComment, username);
+
+      //console log to examine item from downvote
+      console.log(savedComment);
+
+        response.body = {comment: savedComment}; // update response object body with comment
+        response.status = 200; // set response status to 200 if successful
+          console.log(response.body);
+
+      } else {
+        // set respoonse to 400 if not a vaild user name or has already downvoted
+        response.status = 400;
+          //console.log(response.body);
+      }
+
+      return response; // return response object to client
+
+};
 
 function getUser(url, request) {
   const username = url.split('/').filter(segment => segment)[1];
@@ -298,56 +419,6 @@ function downvote(item, username) {
 }
 
 
-// declare the create comment function and pass the comment url and request type as parameters
-function createComment(url, request) {
-
-    const requestComment = request.body && request.body.comment; // set variable with body of request properties
-    const response = {}; // create empty object comment
-// validation check if paramaters are truthy
-    if (requestComment && requestComment.body && database.users[requestComment.username] && database.articles[requestComment.articleId]) {
-// create new comment object dynamically with validated from request
-   const comment = {
-        id: database.nextCommentId++, //increment comment ID when creating new comments
-        body: requestComment.body, // set body property as value from comment object key body
-        username: requestComment.username,  //set username with propeties of comment object with key username
-        articleId: requestComment.articleId, //set articleproperty with value of article Id from comment request
-        upvotedBy: [],
-        downvotedBy: []
-      };
-
-      database.comments[comment.id] = comment; //update database aray with the new comments object using comment.id index value
-      //database.articles[requestComment.comment.articleId].commentIds.push(comment.id); //push data into the article array using articleID as index
-      database.articles[comment.articleId].commentIds.push(comment.id);
-      database.users[comment.username].commentIds.push(comment.id); // push data into
-
-      response.body = {comment: comment};
-      response.status = 201; //respond with 201 with new comment
-    } else {
-      response.status = 400; // if data is invalid return 400
-    }
-return response; // return response
-
-
-} // end create comment function
-function updateComment(url, request) {
-  const id = Number(url.split('/').filter(segment => segment)[1]);
-  const savedComment = database.comments[id];
-  const requestComment = request.body && request.body.comment;
-  const response = {};
-
-  if (!id || !requestComment) {
-    response.status = 400;
-  } else if (!savedComment) {
-    response.status = 404;
-  } else {
-    savedComment.body = requestComment.body || savedComment.body;
-
-    response.body = {comment: savedComment};
-    response.status = 200;
-  }
-
-  return response;
-};
 
 // Write all code above this line.
 
